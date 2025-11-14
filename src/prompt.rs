@@ -1,10 +1,10 @@
 use std::fmt::Display;
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::message::{Message, Role};
 
-#[derive(Serialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(transparent)]
 pub struct Prompt(Vec<Message>);
 
