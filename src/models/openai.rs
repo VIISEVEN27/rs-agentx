@@ -6,28 +6,33 @@ use reqwest::Response;
 use serde_json::json;
 use trpl::{ReceiverStream, channel};
 
-use crate::{completion::Completion, config::OpenAIConfig, prompt::Prompt, response::ChatResponse};
+use crate::{
+    completion::Completion, options::OpenAIModelOptions, prompt::Prompt, response::ChatResponse,
+};
 
-async fn api(config: &OpenAIConfig, prompt: &Prompt, stream: bool) -> anyhow::Result<Response> {
-    let OpenAIConfig {
+async fn api(
+    prompt: &Prompt,
+    options: &OpenAIModelOptions,
+    stream: bool,
+) -> anyhow::Result<Response> {
+    let OpenAIModelOptions {
         model,
         base_url,
         api_key,
-    } = config;
+    } = options;
     let client = reqwest::Client::new();
-    let response = client
-        .post(base_url)
-        .bearer_auth(api_key)
-        .json(&json!({
-            "model": model,
-            "messages": prompt,
-            "stream": stream,
-            "stream_options": {
-                "include_usage": true
-            }
-        }))
-        .send()
-        .await?;
+    let mut request = client.post(base_url).json(&json!({
+        "model": model,
+        "messages": prompt,
+        "stream": stream,
+        "stream_options": {
+            "include_usage": true
+        }
+    }));
+    if let Some(api_key) = api_key {
+        request = request.bearer_auth(api_key);
+    }
+    let response = request.send().await?;
     if !response.status().is_success() {
         return Err(anyhow!(
             "request failed with status code {}: {}",
@@ -39,10 +44,10 @@ async fn api(config: &OpenAIConfig, prompt: &Prompt, stream: bool) -> anyhow::Re
 }
 
 pub(crate) async fn stream_openai(
-    config: &OpenAIConfig,
     prompt: &Prompt,
+    options: &OpenAIModelOptions,
 ) -> anyhow::Result<Pin<Box<dyn Stream<Item = Completion> + Send + Sync>>> {
-    let mut response = api(config, prompt, true).await?;
+    let mut response = api(prompt, options, true).await?;
     let (tx, rx) = channel();
     tokio::spawn(async move {
         while let Some(chunk) = response.chunk().await.unwrap() {
@@ -62,10 +67,10 @@ pub(crate) async fn stream_openai(
 }
 
 pub(crate) async fn completion_openai(
-    config: &OpenAIConfig,
     prompt: &Prompt,
+    options: &OpenAIModelOptions,
 ) -> anyhow::Result<Completion> {
-    let response = api(config, prompt, false)
+    let response = api(prompt, options, false)
         .await?
         .json::<ChatResponse>()
         .await?;

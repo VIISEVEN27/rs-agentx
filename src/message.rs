@@ -11,7 +11,7 @@ pub enum Role {
     Assistant,
 }
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(PartialEq, Clone, Debug)]
 pub enum Media {
     Text(String),
     ImageUrl(String),
@@ -156,69 +156,74 @@ impl<'de> Deserialize<'de> for Media {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(untagged)]
 pub enum Message {
-    Text { role: Role, content: String },
-    Media { role: Role, content: Vec<Media> },
+    Text(TextMessage),
+    Media(MediaMessage),
 }
 
 impl Message {
-    pub fn system(content: String) -> Self {
-        Message::Text {
-            role: Role::System,
-            content,
-        }
+    pub fn text<T: Display>(role: Role, content: T) -> Self {
+        Message::Text(TextMessage::new(role, content))
     }
 
-    pub fn user(content: String) -> Self {
-        Message::Text {
-            role: Role::User,
-            content,
-        }
-    }
-
-    pub fn assistant(content: String) -> Self {
-        Message::Text {
-            role: Role::Assistant,
-            content,
-        }
-    }
-
-    pub fn builder() -> MessageBuilder {
-        MessageBuilder::new()
+    pub fn media(role: Role) -> MediaMessage {
+        MediaMessage::new(role)
     }
 }
 
-pub struct MessageBuilder(Vec<Media>);
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct TextMessage {
+    role: Role,
+    content: String,
+}
 
-impl MessageBuilder {
-    pub fn new() -> Self {
-        MessageBuilder(Vec::new())
-    }
-
-    pub fn text(mut self, content: String) -> Self {
-        self.0.push(Media::Text(content));
-        self
-    }
-
-    pub fn image_url(mut self, url: String) -> Self {
-        self.0.push(Media::ImageUrl(url));
-        self
-    }
-
-    pub fn video(mut self, urls: Vec<String>) -> Self {
-        self.0.push(Media::Video(urls));
-        self
-    }
-
-    pub fn video_url(mut self, url: String) -> Self {
-        self.0.push(Media::VideoUrl(url));
-        self
-    }
-
-    pub fn build(self, role: Role) -> Message {
-        Message::Media {
+impl TextMessage {
+    pub fn new<T: Display>(role: Role, content: T) -> Self {
+        TextMessage {
             role,
-            content: self.0,
+            content: content.to_string(),
         }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+pub struct MediaMessage {
+    role: Role,
+    content: Vec<Media>,
+}
+
+impl MediaMessage {
+    pub fn new(role: Role) -> Self {
+        MediaMessage {
+            role,
+            content: Vec::new(),
+        }
+    }
+
+    pub fn text<T: Display>(mut self, content: T) -> Self {
+        self.content.push(Media::Text(content.to_string()));
+        self
+    }
+
+    pub fn image_url<T: Display>(mut self, url: T) -> Self {
+        self.content.push(Media::ImageUrl(url.to_string()));
+        self
+    }
+
+    pub fn video<T: Display>(mut self, urls: Vec<T>) -> Self {
+        self.content
+            .push(Media::Video(urls.iter().map(ToString::to_string).collect()));
+        self
+    }
+
+    pub fn video_url<T: Display>(mut self, url: T) -> Self {
+        self.content.push(Media::VideoUrl(url.to_string()));
+        self
+    }
+}
+
+impl From<MediaMessage> for Message {
+    fn from(message: MediaMessage) -> Self {
+        Message::Media(message)
     }
 }
 
@@ -230,14 +235,19 @@ mod tests {
     fn test_der_message() {
         let json = r#"{"role":"user","content":[{"type":"image_url","image_url":{"url":"https://www.baidu.com/img/bd_logo.png"}},{"type":"text","text":"这是什么"}]}"#;
         let message = serde_json::from_str::<Message>(json).unwrap();
-        if let Message::Media { content, .. } = message {
-            assert_eq!(
-                content[0],
-                Media::ImageUrl("https://www.baidu.com/img/bd_logo.png".to_string())
-            );
-            assert_eq!(content[1], Media::Text("这是什么".to_string()));
+        if let Message::Media(MediaMessage { content, .. }) = message {
+            if let Media::ImageUrl(url) = &content[0] {
+                assert_eq!(url, "https://www.baidu.com/img/bd_logo.png");
+            } else {
+                panic!("'content[0]' is not 'Media::ImageUrl'");
+            }
+            if let Media::Text(text) = &content[1] {
+                assert_eq!(text, "这是什么");
+            } else {
+                panic!("'content[1]' is not 'Media::Text'");
+            }
         } else {
-            panic!("message is not 'Message::Media'");
+            panic!("'message' is not 'Message::Media'");
         }
     }
 }

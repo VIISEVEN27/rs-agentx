@@ -1,8 +1,8 @@
-use crate::config::ModelConfig;
+use crate::options::ModelOptions;
 
 pub mod chat;
 mod openai;
 
 pub trait Model {
-    fn config(&self) -> &ModelConfig;
+    fn options(&self) -> &ModelOptions;
 }
