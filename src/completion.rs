@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use serde::{Deserialize, Serialize};
 
 use crate::usage::Usage;
@@ -13,27 +15,30 @@ pub struct Completion {
 }
 
 impl Completion {
-    pub fn with_content(content: String) -> Self {
+    pub(crate) fn new(
+        content: Option<String>,
+        reasoning_content: Option<String>,
+        usage: Option<Usage>,
+    ) -> Self {
         Self {
-            content: Some(content),
-            reasoning_content: None,
-            usage: None,
+            content,
+            reasoning_content,
+            usage,
         }
     }
+}
 
-    pub fn with_reasoning_content(reasoning_content: String) -> Self {
-        Self {
-            content: None,
-            reasoning_content: Some(reasoning_content),
-            usage: None,
+impl Display for Completion {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut text = String::new();
+        if let Some(reasoning_content) = &self.reasoning_content {
+            text.push_str("<think>");
+            text.push_str(reasoning_content);
+            text.push_str("</think>");
         }
-    }
-
-    pub fn with_usage(usage: Usage) -> Self {
-        Self {
-            content: None,
-            reasoning_content: None,
-            usage: Some(usage),
+        if let Some(content) = &self.content {
+            text.push_str(content);
         }
+        write!(f, "{}", text)
     }
 }

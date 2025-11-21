@@ -1,21 +1,44 @@
 use std::fmt::Display;
 
-#[derive(Clone, Debug)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(untagged)]
 pub enum ModelOptions {
     OpenAI(OpenAIModelOptions),
 }
 
-#[derive(Clone, Debug)]
+impl ModelOptions {
+    pub fn openai() -> OpenAIModelOptions {
+        OpenAIModelOptions::new()
+    }
+
+    pub fn merge(self, other: Self) -> Self {
+        match (self, other) {
+            (Self::OpenAI(options), Self::OpenAI(other_options)) => {
+                options.merge(other_options).into()
+            }
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct OpenAIModelOptions {
-    pub base_url: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
+    pub base_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub model: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default)]
     pub api_key: Option<String>,
 }
 
 impl OpenAIModelOptions {
-    pub fn new<T: Display>(base_url: T) -> Self {
+    pub fn new() -> Self {
         Self {
-            base_url: base_url.to_string(),
+            base_url: None,
             model: None,
             api_key: None,
         }
@@ -26,9 +49,27 @@ impl OpenAIModelOptions {
         self
     }
 
+    pub fn base_url<T: Display>(mut self, base_url: T) -> Self {
+        self.base_url = Some(base_url.to_string());
+        self
+    }
+
     pub fn api_key<T: Display>(mut self, api_key: T) -> Self {
         self.api_key = Some(api_key.to_string());
         self
+    }
+
+    pub fn merge(self, other: Self) -> Self {
+        let Self {
+            model,
+            base_url,
+            api_key,
+        } = other;
+        Self {
+            model: model.or(self.model),
+            base_url: base_url.or(self.base_url),
+            api_key: api_key.or(self.api_key),
+        }
     }
 }
 

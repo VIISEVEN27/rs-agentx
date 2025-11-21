@@ -26,8 +26,10 @@ struct Url {
 }
 
 impl Url {
-    fn new(value: String) -> Self {
-        Self { value }
+    fn new<T: Display>(value: T) -> Self {
+        Self {
+            value: value.to_string(),
+        }
     }
 }
 
@@ -47,7 +49,7 @@ impl Serialize for Media {
             }
             Media::ImageUrl(value) => {
                 map.serialize_entry("type", "image_url")?;
-                map.serialize_entry("image_url", &Url::new(value.clone()))?;
+                map.serialize_entry("image_url", &Url::new(value))?;
             }
             Media::Video(value) => {
                 map.serialize_entry("type", "video")?;
@@ -55,7 +57,7 @@ impl Serialize for Media {
             }
             Media::VideoUrl(value) => {
                 map.serialize_entry("type", "video_url")?;
-                map.serialize_entry("video_url", &Url::new(value.clone()))?;
+                map.serialize_entry("video_url", &Url::new(value))?;
             }
         }
         map.end()
@@ -197,6 +199,11 @@ impl MediaMessage {
             role,
             content: Vec::new(),
         }
+    }
+
+    pub fn content(mut self, content: Vec<Media>) -> Self {
+        self.content = content;
+        self
     }
 
     pub fn text<T: Display>(mut self, content: T) -> Self {
