@@ -1,5 +1,3 @@
-use std::fmt::Display;
-
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -44,18 +42,18 @@ impl OpenAIModelOptions {
         }
     }
 
-    pub fn model<T: Display>(mut self, model: T) -> Self {
-        self.model = Some(model.to_string());
+    pub fn model<T: AsRef<str>>(mut self, model: T) -> Self {
+        self.model = Some(model.as_ref().to_owned());
         self
     }
 
-    pub fn base_url<T: Display>(mut self, base_url: T) -> Self {
-        self.base_url = Some(base_url.to_string());
+    pub fn base_url<T: AsRef<str>>(mut self, base_url: T) -> Self {
+        self.base_url = Some(base_url.as_ref().to_owned());
         self
     }
 
-    pub fn api_key<T: Display>(mut self, api_key: T) -> Self {
-        self.api_key = Some(api_key.to_string());
+    pub fn api_key<T: AsRef<str>>(mut self, api_key: T) -> Self {
+        self.api_key = Some(api_key.as_ref().to_owned());
         self
     }
 

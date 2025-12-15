@@ -26,9 +26,9 @@ struct Url {
 }
 
 impl Url {
-    fn new<T: Display>(value: T) -> Self {
+    fn new<T: AsRef<str>>(value: T) -> Self {
         Self {
-            value: value.to_string(),
+            value: value.as_ref().to_owned(),
         }
     }
 }
@@ -163,7 +163,7 @@ pub enum Message {
 }
 
 impl Message {
-    pub fn text<T: Display>(role: Role, content: T) -> Self {
+    pub fn text<T: AsRef<str>>(role: Role, content: T) -> Self {
         Message::Text(TextMessage::new(role, content))
     }
 
@@ -179,10 +179,10 @@ pub struct TextMessage {
 }
 
 impl TextMessage {
-    pub fn new<T: Display>(role: Role, content: T) -> Self {
+    pub fn new<T: AsRef<str>>(role: Role, content: T) -> Self {
         TextMessage {
             role,
-            content: content.to_string(),
+            content: content.as_ref().to_owned(),
         }
     }
 }
@@ -206,24 +206,27 @@ impl MediaMessage {
         self
     }
 
-    pub fn text<T: Display>(mut self, content: T) -> Self {
-        self.content.push(Media::Text(content.to_string()));
+    pub fn text<T: AsRef<str>>(mut self, content: T) -> Self {
+        self.content.push(Media::Text(content.as_ref().to_owned()));
         self
     }
 
-    pub fn image_url<T: Display>(mut self, url: T) -> Self {
-        self.content.push(Media::ImageUrl(url.to_string()));
+    pub fn image_url<T: AsRef<str>>(mut self, url: T) -> Self {
+        self.content.push(Media::ImageUrl(url.as_ref().to_owned()));
         self
     }
 
-    pub fn video<T: Display>(mut self, urls: Vec<T>) -> Self {
-        self.content
-            .push(Media::Video(urls.iter().map(ToString::to_string).collect()));
+    pub fn video<T: AsRef<str>>(mut self, urls: Vec<T>) -> Self {
+        self.content.push(Media::Video(
+            urls.into_iter()
+                .map(|url| url.as_ref().to_owned())
+                .collect(),
+        ));
         self
     }
 
-    pub fn video_url<T: Display>(mut self, url: T) -> Self {
-        self.content.push(Media::VideoUrl(url.to_string()));
+    pub fn video_url<T: AsRef<str>>(mut self, url: T) -> Self {
+        self.content.push(Media::VideoUrl(url.as_ref().to_owned()));
         self
     }
 }

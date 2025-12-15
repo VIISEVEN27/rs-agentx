@@ -1,5 +1,3 @@
-use std::fmt::Display;
-
 use serde::{Deserialize, Serialize};
 
 use crate::message::{Message, Role};
@@ -13,8 +11,8 @@ impl Prompt {
         Prompt(Vec::new())
     }
 
-    pub fn create<T: Display>(content: T) -> Self {
-        Self(vec![Message::text(Role::User, content.to_string())])
+    pub fn create<T: AsRef<str>>(content: T) -> Self {
+        Self(vec![Message::text(Role::User, content)])
     }
 
     pub fn message(mut self, message: Message) -> Self {
@@ -22,15 +20,15 @@ impl Prompt {
         self
     }
 
-    pub fn system<T: Display>(self, content: T) -> Self {
+    pub fn system<T: AsRef<str>>(self, content: T) -> Self {
         self.message(Message::text(Role::System, content))
     }
 
-    pub fn user<T: Display>(self, content: T) -> Self {
+    pub fn user<T: AsRef<str>>(self, content: T) -> Self {
         self.message(Message::text(Role::User, content))
     }
 
-    pub fn assistant<T: Display>(self, content: T) -> Self {
+    pub fn assistant<T: AsRef<str>>(self, content: T) -> Self {
         self.message(Message::text(Role::Assistant, content))
     }
 }
