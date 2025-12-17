@@ -5,7 +5,7 @@ use std::{
 
 use futures::StreamExt;
 
-use crate::{Completion, options::ModelOptions};
+use crate::{options::ModelOptions, Completion};
 
 pub mod chat;
 

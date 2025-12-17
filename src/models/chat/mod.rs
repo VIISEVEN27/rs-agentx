@@ -1,142 +1,91 @@
 use anyhow::Ok;
 use async_trait::async_trait;
-use futures::StreamExt;
 
-use crate::{Completion, Model, ModelOptions, Prompt, Stream};
+use crate::{options::BorrowedModelOptions, Completion, Model, ModelOptions, Prompt, Stream};
 
 mod openai;
 
-async fn completion_with(prompt: &Prompt, options: &ModelOptions) -> anyhow::Result<Completion> {
-    match options {
-        ModelOptions::OpenAI(options) => Ok(openai::completion(prompt, options).await?.into()),
-    }
-}
-
-async fn text_completion_with(prompt: &Prompt, options: &ModelOptions) -> anyhow::Result<String> {
-    match options {
-        ModelOptions::OpenAI(options) => Ok(openai::completion(prompt, options).await?.to_string()),
-    }
-}
-
 #[async_trait]
 pub trait ChatModel: Model {
-    async fn completion_with(
+    async fn completion(
         &self,
         prompt: &Prompt,
         options: ModelOptions,
     ) -> anyhow::Result<Completion> {
-        let options = self.options().clone().merge(options);
-        completion_with(prompt, &options).await
+        let options = self.options().merge(&options);
+        match options {
+            BorrowedModelOptions::OpenAI(options) => {
+                Ok(openai::completion(prompt, options).await?.into())
+            }
+            _ => panic!("Unsupported type of 'ModelOptions'"),
+        }
     }
 
-    async fn completion(&self, prompt: &Prompt) -> anyhow::Result<Completion> {
-        completion_with(prompt, self.options()).await
-    }
-
-    async fn text_completion_with(
+    async fn text_completion(
         &self,
         prompt: &Prompt,
         options: ModelOptions,
     ) -> anyhow::Result<String> {
-        let options = self.options().clone().merge(options);
-        text_completion_with(prompt, &options).await
+        let options = self.options().merge(&options);
+        match options {
+            BorrowedModelOptions::OpenAI(options) => {
+                Ok(openai::completion(prompt, options).await?.to_string())
+            }
+            _ => panic!("Unsupported type of 'ModelOptions'"),
+        }
     }
-
-    async fn text_completion(&self, prompt: &Prompt) -> anyhow::Result<String> {
-        text_completion_with(prompt, self.options()).await
-    }
-}
-
-async fn stream_with(
-    prompt: &Prompt,
-    options: &ModelOptions,
-) -> anyhow::Result<Stream<Completion>> {
-    match options {
-        ModelOptions::OpenAI(options) => Ok(openai::stream(prompt, options).await?.into()),
-    }
-}
-
-async fn text_stream_with(
-    prompt: &Prompt,
-    options: &ModelOptions,
-) -> anyhow::Result<Stream<String>> {
-    match options {
-        ModelOptions::OpenAI(options) => Ok(openai::stream(prompt, options).await?.into()),
-    }
-}
-
-async fn completion_from_stream_with(
-    prompt: &Prompt,
-    options: &ModelOptions,
-) -> anyhow::Result<Completion> {
-    match options {
-        ModelOptions::OpenAI(options) => Ok(openai::stream(prompt, options).await?.collect().await),
-    }
-}
-
-async fn text_completion_from_stream_with(
-    prompt: &Prompt,
-    options: &ModelOptions,
-) -> anyhow::Result<String> {
-    Ok(text_stream_with(prompt, options)
-        .await?
-        .into_inner()
-        .collect()
-        .await)
 }
 
 #[async_trait]
 pub trait StreamingChatModel: Model {
-    async fn stream_with(
+    async fn stream(
         &self,
         prompt: &Prompt,
         options: ModelOptions,
     ) -> anyhow::Result<Stream<Completion>> {
-        let options = self.options().clone().merge(options);
-        stream_with(prompt, &options).await
+        let options = self.options().merge(&options);
+        match options {
+            BorrowedModelOptions::OpenAI(options) => {
+                Ok(openai::stream(prompt, options).await?.into())
+            }
+            _ => panic!("Unsupported type of 'ModelOptions'"),
+        }
     }
 
-    async fn stream(&self, prompt: &Prompt) -> anyhow::Result<Stream<Completion>> {
-        stream_with(prompt, self.options()).await
-    }
-
-    async fn text_stream_with(
+    async fn text_stream(
         &self,
         prompt: &Prompt,
         options: ModelOptions,
     ) -> anyhow::Result<Stream<String>> {
-        let options = self.options().clone().merge(options);
-        text_stream_with(prompt, &options).await
+        let options = self.options().merge(&options);
+        match options {
+            BorrowedModelOptions::OpenAI(options) => {
+                Ok(openai::stream(prompt, options).await?.into())
+            }
+            _ => panic!("Unsupported type of 'ModelOptions'"),
+        }
     }
 
-    async fn text_stream(&self, prompt: &Prompt) -> anyhow::Result<Stream<String>> {
-        text_stream_with(prompt, self.options()).await
-    }
-
-    async fn completion_with(
+    async fn completion(
         &self,
         prompt: &Prompt,
         options: ModelOptions,
     ) -> anyhow::Result<Completion> {
-        let options = self.options().clone().merge(options);
-        completion_from_stream_with(prompt, &options).await
+        let options = self.options().merge(&options);
+        match options {
+            BorrowedModelOptions::OpenAI(options) => {
+                Ok(openai::stream(prompt, options).await?.collect().await)
+            }
+            _ => panic!("Unsupported type of 'ModelOptions'"),
+        }
     }
 
-    async fn completion(&self, prompt: &Prompt) -> anyhow::Result<Completion> {
-        completion_from_stream_with(prompt, self.options()).await
-    }
-
-    async fn text_completion_with(
+    async fn text_completion(
         &self,
         prompt: &Prompt,
         options: ModelOptions,
     ) -> anyhow::Result<String> {
-        let options = self.options().clone().merge(options);
-        text_completion_from_stream_with(prompt, &options).await
-    }
-
-    async fn text_completion(&self, prompt: &Prompt) -> anyhow::Result<String> {
-        text_completion_from_stream_with(prompt, self.options()).await
+        Ok(self.text_stream(prompt, options).await?.collect().await)
     }
 }
 
@@ -186,7 +135,10 @@ mod tests {
             );
         println!("{}", serde_json::to_string(&propmt).unwrap());
         let qwen = Qwen::new();
-        let completion = qwen.completion(&propmt).await.unwrap();
+        let completion = qwen
+            .completion(&propmt, ModelOptions::default())
+            .await
+            .unwrap();
         println!("{completion:?}");
     }
 }

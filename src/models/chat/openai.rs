@@ -6,14 +6,14 @@ use futures::StreamExt;
 use serde::Deserialize;
 use serde_json::json;
 
-use crate::{Completion, OpenAIModelOptions, Prompt, Stream, Usage};
+use crate::{options::BorrowedOpenAIModelOptions, Completion, Prompt, Stream, Usage};
 
 async fn api(
     prompt: &Prompt,
-    options: &OpenAIModelOptions,
+    options: BorrowedOpenAIModelOptions<'_>,
     stream: bool,
 ) -> anyhow::Result<reqwest::Response> {
-    let OpenAIModelOptions {
+    let BorrowedOpenAIModelOptions {
         model,
         base_url,
         api_key,
@@ -22,7 +22,7 @@ async fn api(
         return Err(anyhow!("'base_url' is required"));
     }
     let client = reqwest::Client::new();
-    let mut request = client.post(base_url.as_ref().unwrap()).json(&json!({
+    let mut request = client.post(base_url.unwrap()).json(&json!({
         "model": model,
         "messages": prompt,
         "stream": stream,
@@ -116,9 +116,9 @@ impl Response {
     }
 }
 
-pub(crate) async fn completion(
+pub(crate) async fn completion<'a>(
     prompt: &Prompt,
-    options: &OpenAIModelOptions,
+    options: BorrowedOpenAIModelOptions<'a>,
 ) -> anyhow::Result<Response> {
     let response = api(prompt, options, false).await?.json().await?;
     Ok(response)
@@ -153,9 +153,9 @@ impl Display for Response {
     }
 }
 
-pub(crate) async fn stream(
+pub(crate) async fn stream<'a>(
     prompt: &Prompt,
-    options: &OpenAIModelOptions,
+    options: BorrowedOpenAIModelOptions<'a>,
 ) -> anyhow::Result<Stream<Response>> {
     let mut response = api(prompt, options, true).await?;
     let stream = stream! {
