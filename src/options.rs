@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 #[serde(untagged)]
 pub enum ModelOptions {
     OpenAI(OpenAIModelOptions),
+    #[doc(hidden)]
     Whatever,
 }
 
@@ -19,20 +20,20 @@ impl Default for ModelOptions {
     }
 }
 
-pub enum BorrowedModelOptions<'a> {
+pub(crate) enum BorrowedModelOptions<'a> {
     OpenAI(BorrowedOpenAIModelOptions<'a>),
     Whatever,
 }
 
 impl ModelOptions {
-    pub fn borrow(&self) -> BorrowedModelOptions<'_> {
+    pub(crate) fn borrow(&self) -> BorrowedModelOptions<'_> {
         match self {
             Self::OpenAI(options) => options.borrow().into(),
             Self::Whatever => BorrowedModelOptions::Whatever,
         }
     }
 
-    pub fn merge<'a>(&'a self, other: &'a Self) -> BorrowedModelOptions<'a> {
+    pub(crate) fn merge<'a>(&'a self, other: &'a Self) -> BorrowedModelOptions<'a> {
         match (self, other) {
             (Self::OpenAI(options), Self::OpenAI(other_options)) => {
                 options.merge(other_options).into()
@@ -87,14 +88,14 @@ impl From<OpenAIModelOptions> for ModelOptions {
     }
 }
 
-pub struct BorrowedOpenAIModelOptions<'a> {
+pub(crate) struct BorrowedOpenAIModelOptions<'a> {
     pub model: Option<&'a str>,
     pub base_url: Option<&'a str>,
     pub api_key: Option<&'a str>,
 }
 
 impl OpenAIModelOptions {
-    pub fn borrow(&self) -> BorrowedOpenAIModelOptions<'_> {
+    pub(crate) fn borrow(&self) -> BorrowedOpenAIModelOptions<'_> {
         BorrowedOpenAIModelOptions {
             model: self.model.as_deref(),
             base_url: self.base_url.as_deref(),
@@ -102,7 +103,7 @@ impl OpenAIModelOptions {
         }
     }
 
-    pub fn merge<'a>(&'a self, other: &'a Self) -> BorrowedOpenAIModelOptions<'a> {
+    pub(crate) fn merge<'a>(&'a self, other: &'a Self) -> BorrowedOpenAIModelOptions<'a> {
         BorrowedOpenAIModelOptions {
             model: other.model.as_deref().or(self.model.as_deref()),
             base_url: other.base_url.as_deref().or(self.base_url.as_deref()),
