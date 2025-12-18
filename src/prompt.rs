@@ -34,7 +34,7 @@ impl Prompt {
         self.message(Message::text(Role::Assistant, content))
     }
 
-    pub fn is_media(self) -> bool {
+    pub fn is_media(&self) -> bool {
         for message in &self.0 {
             if let Message::Media(_) = message {
                 return true;
