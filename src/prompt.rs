@@ -1,3 +1,5 @@
+use std::ops::{Deref, DerefMut};
+
 use serde::{Deserialize, Serialize};
 
 use crate::message::{Message, Role};
@@ -36,5 +38,28 @@ impl Prompt {
 impl From<Vec<Message>> for Prompt {
     fn from(messages: Vec<Message>) -> Self {
         Prompt(messages)
+    }
+}
+
+impl Deref for Prompt {
+    type Target = Vec<Message>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for Prompt {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl IntoIterator for Prompt {
+    type Item = Message;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
     }
 }
