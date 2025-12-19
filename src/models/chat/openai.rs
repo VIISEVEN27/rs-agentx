@@ -232,6 +232,8 @@ impl Stream<Response> {
                     *reasoning_content_completed.get_or_insert_default() +=
                         reasoning_content.as_str();
                 }
+            } else if item.usage.is_none() {
+                break;
             }
             if let Some(usage) = item.usage {
                 usage_completed = Some(usage);
