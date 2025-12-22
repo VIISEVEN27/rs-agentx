@@ -68,51 +68,79 @@ pub(crate) struct Content {
 }
 
 impl Response {
-    pub fn content(&self) -> Option<&String> {
+    pub(crate) fn content(&self) -> Option<&String> {
         if let Some(Choice { message, delta }) = self.choices.first() {
-            if let Some(Content { content, .. }) = message {
-                return content.as_ref();
-            } else if let Some(Content { content, .. }) = delta {
-                return content.as_ref();
+            if let Some(content) = message {
+                if let Some(content) = content.content() {
+                    return Some(content);
+                }
+            }
+            if let Some(content) = delta {
+                if let Some(content) = content.content() {
+                    return Some(content);
+                }
             }
         }
         None
     }
 
-    pub fn reasoning_content(&self) -> Option<&String> {
+    pub(crate) fn reasoning_content(&self) -> Option<&String> {
         if let Some(Choice { message, delta }) = self.choices.first() {
-            if let Some(Content {
-                reasoning_content, ..
-            }) = message
-            {
-                return reasoning_content.as_ref();
-            } else if let Some(Content {
-                reasoning_content, ..
-            }) = delta
-            {
-                return reasoning_content.as_ref();
+            if let Some(content) = message {
+                if let Some(reasoning_content) = content.reasoning_content() {
+                    return Some(reasoning_content);
+                }
+            }
+            if let Some(content) = delta {
+                if let Some(reasoning_content) = content.reasoning_content() {
+                    return Some(reasoning_content);
+                }
             }
         }
         None
     }
 
-    pub fn message(&self) -> Option<&Content> {
+    pub(crate) fn usage(&self) -> Option<&Usage> {
+        self.usage.as_ref().filter(|u| u.total_tokens > 0)
+    }
+
+    pub(crate) fn message(&self) -> Option<&Content> {
         self.choices
             .first()
             .and_then(|choice| choice.message.as_ref())
     }
 
-    pub fn delta(&self) -> Option<&Content> {
+    pub(crate) fn delta(&self) -> Option<&Content> {
         self.choices
             .first()
             .and_then(|choice| choice.delta.as_ref())
     }
 
-    pub fn into_delta(self) -> Option<Content> {
+    pub(crate) fn into_delta(self) -> Option<Content> {
         self.choices
             .into_iter()
             .next()
             .and_then(|choice| choice.delta)
+    }
+}
+
+impl Content {
+    pub(crate) fn content(&self) -> Option<&String> {
+        if let Some(content) = &self.content {
+            if !content.is_empty() {
+                return Some(content);
+            }
+        }
+        None
+    }
+
+    pub(crate) fn reasoning_content(&self) -> Option<&String> {
+        if let Some(reasoning_content) = &self.reasoning_content {
+            if !reasoning_content.is_empty() {
+                return Some(reasoning_content);
+            }
+        }
+        None
     }
 }
 
@@ -129,7 +157,7 @@ impl From<Response> for Completion {
         Completion {
             content: response.content().cloned(),
             reasoning_content: response.reasoning_content().cloned(),
-            usage: response.usage,
+            usage: response.usage().cloned(),
         }
     }
 }
@@ -137,17 +165,15 @@ impl From<Response> for Completion {
 impl Display for Response {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut result = String::new();
-        if let Some(Content {
-            content: Some(content),
-            reasoning_content,
-        }) = self.message()
-        {
-            if let Some(reasoning_content) = reasoning_content {
+        if let Some(content) = self.message() {
+            if let Some(reasoning_content) = content.reasoning_content() {
                 result.push_str("<think>");
                 result.push_str(reasoning_content);
                 result.push_str("</think>");
             }
-            result.push_str(content);
+            if let Some(content) = content.content() {
+                result.push_str(content);
+            }
         }
         write!(f, "{}", result)
     }
@@ -186,27 +212,21 @@ impl From<Stream<Response>> for Stream<String> {
         let text_stream = stream! {
             let mut reasoning = false;
             while let Some(item) = stream.next().await {
-                if let Some(Content {
-                    content,
-                    reasoning_content,
-                }) = item.into_delta()
-                {
-                    if let Some(reasoning_content) = reasoning_content {
+                if let Some(content) = item.into_delta() {
+                    if let Some(reasoning_content) = content.reasoning_content() {
                         if !reasoning {
                             yield "<think>".to_string();
                             reasoning = true;
                         }
-                        yield reasoning_content;
+                        yield reasoning_content.clone();
                     }
-                    if let Some(content) = content {
+                    if let Some(content) = content.content() {
                         if reasoning {
                             yield "</think>".to_string();
                             reasoning = false;
                         }
-                        yield content;
+                        yield content.clone();
                     }
-                } else {
-                    break;
                 }
             }
         };
@@ -220,23 +240,17 @@ impl Stream<Response> {
         let mut reasoning_content_completed = None;
         let mut usage_completed = None;
         while let Some(item) = self.next().await {
-            if let Some(Content {
-                content,
-                reasoning_content,
-            }) = item.delta()
-            {
-                if let Some(content) = content {
+            if let Some(content) = item.delta() {
+                if let Some(content) = content.content() {
                     *content_completed.get_or_insert_default() += content.as_str();
                 }
-                if let Some(reasoning_content) = reasoning_content {
+                if let Some(reasoning_content) = content.reasoning_content() {
                     *reasoning_content_completed.get_or_insert_default() +=
                         reasoning_content.as_str();
                 }
-            } else if item.usage.is_none() {
-                break;
             }
-            if let Some(usage) = item.usage {
-                usage_completed = Some(usage);
+            if let Some(usage) = item.usage() {
+                usage_completed = Some(usage.clone());
             }
         }
         Completion::new(
